@@ -1,0 +1,61 @@
+services:
+  mysql_contenidor:
+    image: mysql:8.0
+    container_name: mysql_contenidor
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: elementos
+      MYSQL_USER: user
+      MYSQL_PASSWORD: user
+    volumes:
+      - datos_sql:/var/lib/mysql
+      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./mysql/my.cnf:/etc/mysql/my.cnf
+    networks:
+      - app-network
+
+  adminMySQL_contenidor:
+    image: phpmyadmin/phpmyadmin
+    container_name: adminMySQL_contenidor
+    environment:
+      PMA_HOST: mysql_contenidor
+      MYSQL_ROOT_PASSWORD: root
+      PMA_PORT: 3306
+    ports:
+      - "8000:80"  # Exponer PhpMyAdmin en el puerto 8000
+    depends_on:
+      - mysql_contenidor
+    networks:
+      - app-network
+
+  backend_contenidor:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend_contenidor
+    depends_on:
+      - mysql_contenidor
+    networks:
+      - app-network
+    ports:
+      - "8081:80"  # Exponer backend en el puerto 8081 (opcional, solo si necesitas acceso directo al backend)
+    command: ["sh", "-c", "wait-for-it mysql_contenidor:3306 -- php -S 0.0.0.0:80 -t /app"]
+
+  frontend_contenidor:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend_contenidor
+    depends_on:
+      - backend_contenidor
+    ports:
+      - "8080:8080"  # Exponer frontend en el puerto 8080
+    networks:
+      - app-network
+
+volumes:
+  datos_sql:
+
+networks:
+  app-network:
+    driver: bridge
